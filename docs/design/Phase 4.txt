@@ -1,0 +1,209 @@
+Excellent! We've arrived at the final stage of your roadmap, Phase 4: Deployment, Testing & Iteration.
+
+
+
+The goal of this phase is to take our co-op prototype, make it accessible to players over the internet using Google Cloud, and prepare for user feedback. This involves setting up user accounts, packaging our server for deployment, and adding tools to monitor player behavior.
+
+
+
+I cannot perform these actions on your GCP account directly, but I can provide you with all the necessary code, configuration files, and step-by-step instructions to do it yourself.
+
+Overview of the Deployment Plan
+We'll follow the key tasks from your roadmap:
+
+User Authentication: We will integrate Firebase Authentication so players can create accounts, which is essential for saving their progress later on.
+Containerize & Deploy: We will package the Node.js server into a Docker container and deploy it to Cloud Run. We'll host the game's client files (HTML, JS) on Cloud Storage and serve them through Cloud CDN for fast loading times globally.
+
+Prepare for Testing & Analysis: We'll add Google Analytics for Firebase to our project to track how players interact with the game, which will help us make informed decisions for future levels.
+Step 1: User Authentication with Firebase
+First, you'll need to create a Firebase project in the Google Cloud console. Once you have a project, enable Firebase Authentication and add "Google" as a sign-in provider.
+
+index.html (Updated)
+Add a login screen and the Firebase SDK scripts. You will need to replace the placeholder Firebase configuration with the actual credentials from your Firebase project settings.
+
+HTML
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Biome Weavers</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #1d2b53; }
+        #login-screen { text-align: center; color: white; }
+        #game-container { display: none; } /* Hide game initially */
+    </style>
+</head>
+<body>
+    <div id="login-screen">
+        <h1>Biome Weavers</h1>
+        <p>Login to begin your journey.</p>
+        <button id="login-button">Login with Google</button>
+    </div>
+
+    <div id="game-container">
+        </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-analytics-compat.js"></script>
+
+    <script>
+      // TODO: Replace with your app's Firebase project configuration
+      const firebaseConfig = {
+        apiKey: "AIza....",
+        authDomain: "your-project-id.firebaseapp.com",
+        projectId: "your-project-id",
+        storageBucket: "your-project-id.appspot.com",
+        messagingSenderId: "...",
+        appId: "...",
+        measurementId: "G-..."
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+      firebase.analytics(); // Initialize Analytics
+    </script>
+
+    <script type="module" src="game.js"></script>
+</body>
+</html>
+game.js (Updated)
+Modify the game to handle the login flow.
+
+JavaScript
+
+// At the top of game.js
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/9.6.7/firebase-auth.js";
+
+const auth = getAuth();
+const loginButton = document.getElementById('login-button');
+
+loginButton.addEventListener('click', () => {
+    const provider = new GoogleAuthProvider();
+    signInWithPopup(auth, provider)
+        .then((result) => {
+            // User is signed in.
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+            
+            // Start the game, passing the user's ID token for authentication
+            result.user.getIdToken().then((idToken) => {
+                startGame(idToken);
+            });
+        }).catch((error) => {
+            console.error("Authentication failed:", error);
+        });
+});
+
+
+function startGame(idToken) {
+    // The rest of your game.js code (from Phase 3) goes here.
+    // The only change is how you connect to the socket.
+    
+    class WhisperingWoods extends Phaser.Scene {
+        create() {
+            // Modify the socket connection to send the auth token
+            this.socket = io({
+                auth: {
+                    token: idToken
+                }
+            });
+
+            // ... The rest of your create() method from Phase 3 ...
+            
+            // Log a custom event with Analytics
+            firebase.analytics().logEvent('level_start', { level_name: 'whispering_woods' });
+        }
+        
+        // ... The rest of the class ...
+    }
+
+    const config = {
+        type: Phaser.AUTO,
+        parent: 'game-container', // Target our new game container
+        width: 800,
+        height: 600,
+        // ... rest of config ...
+        scene: [WhisperingWoods]
+    };
+
+    const game = new Phaser.Game(config);
+}
+Step 2: Containerize & Deploy 
+This process packages your server and puts it on the cloud.
+
+Dockerfile (New File)
+Create this file in the same directory as server.js. It provides instructions for packaging your Node.js application.
+
+Dockerfile
+
+# Use an official Node.js runtime as a parent image
+FROM node:18-slim
+
+# Set the working directory in the container
+WORKDIR /usr/src/app
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install app dependencies
+RUN npm install
+
+# Copy app source code
+COPY . .
+
+# Expose the port the app runs on
+EXPOSE 3000
+
+# Define the command to run the app
+CMD [ "node", "server.js" ]
+Deployment Commands (Google Cloud CLI)
+Run these commands from your terminal in your project directory.
+
+Deploy the Server to Cloud Run: This command builds your Docker container using Cloud Build and deploys it to Cloud Run, which manages and scales it for you.
+
+Bash
+
+# Replace 'your-gcp-project-id' and 'your-service-name'
+gcloud run deploy biome-weavers-server --source . --platform managed --region us-central1 --project your-gcp-project-id --allow-unauthenticated
+After this command finishes, it will give you a Service URL. Copy this URL!
+
+Host the Client on Cloud Storage:
+
+First, update game.js: find the line this.socket = io(...) and change it to this.socket = io("YOUR_CLOUD_RUN_SERVICE_URL", ...) using the URL from the previous step.
+Now, create a bucket and upload your client files.
+Bash
+
+# Create a globally unique bucket
+gsutil mb gs://your-unique-bucket-name
+
+# Upload your client files
+gsutil cp index.html game.js level1.json gs://your-unique-bucket-name/
+
+# Make the files publicly readable
+gsutil iam ch allUsers:objectViewer gs://your-unique-bucket-name
+Your game is now live at https://storage.googleapis.com/your-unique-bucket-name/index.html. For even faster loading, you can enable Cloud CDN on this bucket in the GCP console.
+
+Step 3 & 4: Closed Alpha Test & Analysis 
+Now that the game is live, you can invite your target audience (10-13 year olds) to play.
+
+Gathering Feedback 
+Create a simple feedback form with questions that help you validate the design:
+
+What was your favorite part of the game?
+Was there any puzzle you got stuck on? Which one?
+Did you understand how to use the "Bouncy" and "Sticky" powers?
+Was it fun to play with another person?
+If you could add one new power to the game, what would it be?
+Analyzing Player Data 
+
+
+
+
+
+Because you've integrated Firebase Analytics, you can go to the Firebase console and see data on player behavior. By logging custom events (like the level_start event we added), you can answer key questions from your roadmap, such as how many players complete the level and how long an average session lasts.
+
+
+By completing this phase, you will have a live, scalable, 2-player co-op version of "The Whispering Woods" that is ready for player feedback. This establishes a proven production pipeline for developing the rest of Biome Weavers. Congratulations!

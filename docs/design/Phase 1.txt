@@ -1,0 +1,274 @@
+Coding partner
+
+Show thinking
+Of course! This is an exciting and well-thought-out concept for a game. I can definitely help you bring "Biome Weavers" to life. The game design document and the phased roadmap you've provided are excellent starting points.
+
+Let's follow your roadmap and begin with Phase 1: Pre-Production & Technical Foundation. The best place to start is by building a "Gray Box" Prototype. This will help us create a simple, playable version of the game to test the core mechanics before we add any detailed art or complex server logic.
+
+Overview of the Solution: The "Gray Box" Prototype
+Our goal is to create a functional prototype using the Phaser 3 game engine. This prototype will focus entirely on the core gameplay loop for a single player in "The Whispering Woods":
+
+
+Player Movement: A simple rectangle representing Lila will be able to run and jump.
+Essence Objects: We'll create "Source" objects for the "Bouncy" and "Sticky" essences.
+Faded Objects: We'll have gray platforms and walls that Lila can interact with.
+Essence Weaving: We will implement the Absorb and Imbue mechanics. 
+Lila can touch a "Source" to absorb its essence.
+She can then press a key to imbue that essence into a nearby "Faded" object, changing its properties.
+This prototype will not include multiplayer features or final artwork yet. As your roadmap suggests, it's crucial to get the core, single-player mechanics feeling right first.
+
+Code and Implementation Instructions
+Here is the complete code for the "Gray Box" prototype. It's broken into two files: index.html (the webpage that holds the game) and game.js (the JavaScript code that runs the game).
+
+1. index.html
+This file sets up the webpage and includes the Phaser 3 library from a Content Delivery Network (CDN), so you don't have to download it.
+
+HTML
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Biome Weavers - Prototype</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #333;
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="game.js"></script>
+</body>
+</html>
+2. game.js
+This is the core logic of our prototype. It defines the game scene, creates the player and objects, and handles all the game mechanics.
+
+JavaScript
+
+// A simple helper function to create text for the UI
+function createLabel(scene, x, y, text) {
+    return scene.add.text(x, y, text, {
+        font: "18px Arial",
+        fill: "#ffffff"
+    });
+}
+
+// Main Game Scene
+class WhisperingWoods extends Phaser.Scene {
+
+    constructor() {
+        super("WhisperingWoods");
+        // --- Game State Variables ---
+        this.player = null; // Will hold the player object
+        this.cursors = null; // For keyboard input
+        this.heldEssence = 'none'; // What essence the player is currently holding 
+        this.essenceSources = null; // Group for objects you can absorb from
+        this.fadedObjects = null; // Group for objects you can imbue
+        this.essenceLabel = null; // UI text to show held essence
+        this.imbueKey = null; // Key to trigger the imbue action
+    }
+
+    /**
+     * Preload is where we load all assets into memory.
+     * For a gray box, we don't have images, so this is minimal.
+     */
+    preload() {
+        // We can use this later to load spritesheets, images, and audio 
+    }
+
+    /**
+     * Create is where we set up the initial state of the game.
+     * We'll create the player, platforms, and interactive objects.
+     */
+    create() {
+        // --- Setup Input ---
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.imbueKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+        // --- Create Static Platforms ---
+        const platforms = this.physics.add.staticGroup();
+        platforms.create(400, 580, 'platform').setScale(2).refreshBody(); // Ground
+        platforms.create(600, 450, 'platform');
+        platforms.create(50, 300, 'platform');
+        platforms.create(750, 270, 'platform');
+
+        // Create a basic gray box for platforms
+        this.textures.generate('platform', { data: ['1'.repeat(32*16)], pixelWidth: 16 });
+        platforms.children.iterate(child => {
+            child.setTexture('platform');
+            child.tint = 0xaaaaaa; // A neutral gray
+        });
+
+
+        // --- Create Player ---
+        this.player = this.physics.add.sprite(100, 450, 'player');
+        this.player.setBounce(0.1);
+        this.player.setCollideWorldBounds(true);
+        this.player.body.gravity.y = 300;
+        this.textures.generate('player', { data: ['1'], pixelWidth: 32, pixelHeight: 48 });
+        this.player.setTexture('player');
+        this.player.tint = 0x90ee90; // Lila's green color
+
+        // --- Create Essence Sources  ---
+        this.essenceSources = this.physics.add.group();
+        const bouncyMushroom = this.essenceSources.create(50, 270, 'source'); // Bouncy essence source 
+        bouncyMushroom.essenceType = 'bouncy';
+        bouncyMushroom.tint = 0xffa500; // Orange for Bouncy
+
+        const stickySap = this.essenceSources.create(750, 240, 'source'); // Sticky essence source 
+        stickySap.essenceType = 'sticky';
+        stickySap.tint = 0x00ff00; // Green for Sticky
+
+        this.textures.generate('source', { data: ['1'], pixelWidth: 32, pixelHeight: 32 });
+        bouncyMushroom.setTexture('source');
+        stickySap.setTexture('source');
+
+
+        // --- Create Faded Objects  ---
+        this.fadedObjects = this.physics.add.staticGroup();
+        // A platform that can be made bouncy to reach higher places 
+        const fadedPlatform = this.fadedObjects.create(250, 150, 'faded');
+        fadedPlatform.imbueType = 'none';
+
+        // A wall that can be made sticky for wall-jumping 
+        const fadedWall = this.fadedObjects.create(500, 300, 'faded');
+        fadedWall.setSize(32, 128);
+        fadedWall.imbueType = 'none';
+
+        this.textures.generate('faded', { data: ['1'.repeat(32)], pixelWidth: 128, pixelHeight: 32});
+        this.fadedObjects.children.iterate(child => {
+            child.setTexture('faded');
+            child.tint = 0x666666; // Dark gray for faded objects
+            child.refreshBody();
+        });
+
+
+        // --- Setup Physics Collisions ---
+        this.physics.add.collider(this.player, platforms);
+        this.physics.add.collider(this.player, this.fadedObjects, this.handleFadedObjectCollision, null, this);
+        this.physics.add.overlap(this.player, this.essenceSources, this.absorbEssence, null, this);
+
+        // --- Setup UI ---
+        this.add.text(16, 16, 'Controls: Arrow Keys to Move, E to Imbue', { font: "18px Arial", fill: "#ffffff" });
+        this.essenceLabel = createLabel(this, 16, 40, `Held Essence: ${this.heldEssence}`);
+
+    }
+
+    /**
+     * Update is called on every frame of the game.
+     * This is where we check for player input and update game logic.
+     */
+    update() {
+        // --- Player Movement ---
+        if (this.cursors.left.isDown) {
+            this.player.setVelocityX(-160);
+        } else if (this.cursors.right.isDown) {
+            this.player.setVelocityX(160);
+        } else {
+            this.player.setVelocityX(0);
+        }
+
+        if (this.cursors.up.isDown && this.player.body.touching.down) {
+            this.player.setVelocityY(-330);
+        }
+
+        // --- Imbue Mechanic ---
+        if (Phaser.Input.Keyboard.JustDown(this.imbueKey)) {
+            this.imbueEssence();
+        }
+    }
+
+    // --- Custom Game Functions ---
+
+    /**
+     * Called when the player touches an essence source.
+     * @param {Phaser.Physics.Arcade.Sprite} player - The player object.
+     * @param {Phaser.Physics.Arcade.Sprite} source - The essence source object.
+     */
+    absorbEssence(player, source) {
+        this.heldEssence = source.essenceType;
+        this.essenceLabel.setText(`Held Essence: ${this.heldEssence}`);
+        console.log(`Absorbed: ${this.heldEssence}`); // For debugging
+    }
+
+    /**
+     * Called when the "E" key is pressed. It finds the closest faded object
+     * and imbues it with the currently held essence.
+     */
+    imbueEssence() {
+        if (this.heldEssence === 'none') return; // Can't imbue if not holding anything
+
+        let closestObject = this.physics.closest(this.player, this.fadedObjects.getChildren());
+
+        if (closestObject && Phaser.Math.Distance.Between(this.player.x, this.player.y, closestObject.x, closestObject.y) < 100) {
+            console.log(`Imbuing ${closestObject} with ${this.heldEssence}`); // Debugging
+            
+            closestObject.imbueType = this.heldEssence; // Set the object's new type
+
+            // Change the color to give visual feedback 
+            if (this.heldEssence === 'bouncy') {
+                closestObject.tint = 0xffa500; // Orange
+            } else if (this.heldEssence === 'sticky') {
+                closestObject.tint = 0x00ff00; // Green
+            }
+
+            // Reset held essence after using it
+            this.heldEssence = 'none';
+            this.essenceLabel.setText(`Held Essence: ${this.heldEssence}`);
+        }
+    }
+
+    /**
+     * This function is called when the player collides with a faded object.
+     * We use it to apply the special "bouncy" or "sticky" effects.
+     * @param {Phaser.Physics.Arcade.Sprite} player - The player object.
+     * @param {Phaser.Physics.Arcade.Sprite} fadedObject - The imbued object.
+     */
+    handleFadedObjectCollision(player, fadedObject) {
+        if (fadedObject.imbueType === 'bouncy' && player.body.touching.down) {
+            player.setVelocityY(-550); // Give a strong upward bounce
+        }
+        if (fadedObject.imbueType === 'sticky') {
+            // A simple "sticky" effect that slows descent
+            if (player.body.velocity.y > 0) {
+                player.setVelocityY(50);
+            }
+        }
+    }
+}
+
+// --- Game Configuration ---
+const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 300 },
+            debug: false // Set to true to see physics bodies
+        }
+    },
+    scene: [WhisperingWoods]
+};
+
+// Create a new game instance
+const game = new Phaser.Game(config);
+How to Run the Prototype
+Create a Project Folder: Create a new folder on your computer named biome-weavers-prototype.
+Save the Files:
+Save the first block of code as index.html inside that folder.
+Save the second block of code as game.js inside the same folder.
+Run a Local Server: For security reasons, modern browsers often restrict loading files directly from your computer. You'll need a simple local server to run the game.
+If you have Node.js installed: Open your terminal or command prompt, navigate to your project folder (cd path/to/biome-weavers-prototype), and run the command npx http-server.
+If you have Python installed: Use the command python -m http.server.
+If you use VS Code: You can install the "Live Server" extension, right-click on index.html, and choose "Open with Live Server".
+Play the Game: Open your web browser and navigate to http://localhost:8080 (or the address provided by your local server). You should see the game running!
+You now have a playable prototype that proves the core gameplay is fun. You can run, jump, absorb essences from the colored squares, and imbue them into the gray objects to change their behavior.
+
+This is the perfect foundation for Phase 2, where we'll replace these gray boxes with beautiful art and begin implementing the puzzle and narrative logic.

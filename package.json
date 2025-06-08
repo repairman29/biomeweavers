@@ -1,0 +1,28 @@
+{
+  "name": "biome-weavers",
+  "version": "0.1.0",
+  "description": "A cooperative 2D puzzle-platformer about weaving elemental essences",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "dependencies": {
+    "excalibur": "^0.29.0"
+  },
+  "keywords": ["game", "puzzle-platformer", "cooperative", "web", "typescript"],
+  "author": "Your Name",
+  "license": "MIT"
+} 

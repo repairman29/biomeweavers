@@ -1,0 +1,309 @@
+Excellent! Let's move on to Phase 2: Vertical Slice Production.
+
+The goal here is to transform our gray-box prototype into a polished, feature-complete, single-player version of "The Whispering Woods". We'll focus on building the level with a proper tool, structuring our code for scalability, and implementing the specific puzzles and narrative moments that make the level unique.
+
+Overview of the Solution: The Vertical Slice
+As per your roadmap, we will tackle the following key tasks in code:
+
+Level Construction (with Tiled): Instead of manually placing platforms in our code, we'll use a data-driven approach. I'll provide a sample level file created with the Tiled Map Editor. Our Phaser game will load this file to build the level, which separates the act of level design from programming.
+Core Systems Development (Code Refactoring): We'll break apart our monolithic game.js file into a more organized structure. We'll create separate classes to manage distinct parts of the game, like the player and the essence mechanics. This makes the code cleaner and prepares it for the multiplayer features we'll add in Phase 3.
+
+
+Puzzle & Narrative Implementation: We will code the level's main puzzle, which involves using the "Bouncy" and "Sticky" essences. We'll also add simple text-based "cinematic" triggers for the game's introduction with Elara and the level's conclusion where the Guardian is awakened.
+
+I cannot create the final art assets, but we'll use colored placeholder sprites to represent Lila, the environment, and the different essence states, moving us closer to the final look and feel.
+
+Code and Implementation Instructions
+Here are the files you'll need. We're adding a level1.json file for our Tiled map data and significantly updating game.js.
+
+1. index.html (No Changes)
+This file remains the same. It's the container for our game.
+
+HTML
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Biome Weavers - Vertical Slice</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #1d2b53; /* A darker, forest-at-dusk color */
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="game.js"></script>
+</body>
+</html>
+2. level1.json (New File)
+This is a simplified version of the data that the Tiled Map Editor would export. It defines our level layout, including where to place platforms, essence sources, and faded objects.
+
+JSON
+
+{
+    "width": 50,
+    "height": 38,
+    "tilewidth": 16,
+    "tileheight": 16,
+    "layers": [
+        {
+            "name": "platforms",
+            "type": "objectgroup",
+            "objects": [
+                {"x":0, "y":576, "width":800, "height":32},
+                {"x":480, "y":448, "width":192, "height":32},
+                {"x":32, "y":304, "width":128, "height":32},
+                {"x":704, "y":240, "width":96, "height":32}
+            ]
+        },
+        {
+            "name": "essences",
+            "type": "objectgroup",
+            "objects": [
+                {"name": "bouncy", "x":48, "y":272, "width":32, "height":32},
+                {"name": "sticky", "x":720, "y":208, "width":32, "height":32}
+            ]
+        },
+        {
+            "name": "faded",
+            "type": "objectgroup",
+            "objects": [
+                {"name": "faded_platform", "x":224, "y":160, "width":128, "height":32},
+                {"name": "faded_wall", "x":608, "y":288, "width":32, "height":128}
+            ]
+        },
+        {
+            "name": "triggers",
+            "type": "objectgroup",
+            "objects": [
+                {"name": "start_trigger", "x":32, "y":512, "width":96, "height":64},
+                {"name": "end_trigger", "x":256, "y":96, "width":64, "height":64}
+            ]
+        }
+    ]
+}
+3. game.js (Updated and Refactored)
+This file is now structured into distinct classes. While they are all in one file here for simplicity, in a real project, you would place PlayerController and EssenceManager in their own files (PlayerController.js, EssenceManager.js) and import them.
+
+
+JavaScript
+
+// A simple UI text element
+class Notification {
+    constructor(scene) {
+        this.scene = scene;
+        this.text = scene.add.text(scene.cameras.main.width / 2, 80, '', {
+            font: "24px Arial",
+            fill: "#ffffff",
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            align: "center",
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+        this.text.visible = false;
+    }
+
+    show(message) {
+        this.text.setText(message);
+        this.text.visible = true;
+        this.scene.time.delayedCall(3000, () => {
+            this.text.visible = false;
+        });
+    }
+}
+
+// Manages all player-related logic: movement and state 
+class PlayerController {
+    constructor(scene, x, y) {
+        this.scene = scene;
+        this.sprite = scene.physics.add.sprite(x, y, 'lila');
+        this.sprite.setBounce(0.1);
+        this.sprite.setCollideWorldBounds(true);
+        this.sprite.body.gravity.y = 300;
+        this.sprite.tint = 0xd0ffc4; // A leafy green color for Lila 
+
+        // This is a "hook" for multiplayer. 
+        // Instead of reading keys directly, we could read a state object from a server. 
+        this.input = scene.cursors;
+    }
+
+    update() {
+        if (this.input.left.isDown) {
+            this.sprite.setVelocityX(-160);
+        } else if (this.input.right.isDown) {
+            this.sprite.setVelocityX(160);
+        } else {
+            this.sprite.setVelocityX(0);
+        }
+
+        if (this.input.up.isDown && this.sprite.body.touching.down) {
+            this.sprite.setVelocityY(-330);
+        }
+    }
+}
+
+// Manages all logic for absorbing, holding, and imbuing essences 
+class EssenceManager {
+    constructor(scene, player) {
+        this.scene = scene;
+        this.player = player;
+        this.heldEssence = 'none';
+        this.uiText = scene.add.text(16, 16, 'Held Essence: None', {
+            font: "18px Arial", fill: "#ffffff"
+        }).setScrollFactor(0);
+
+        this.imbueKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    }
+
+    // Called when player overlaps with a source
+    absorb(source) {
+        this.heldEssence = source.essenceType;
+        this.uiText.setText(`Held Essence: ${this.heldEssence}`);
+        source.disableBody(true, true); // Consume the source
+        console.log(`Absorbed: ${this.heldEssence}`);
+    }
+
+    // Called when player presses the imbue key
+    imbue(fadedObjects) {
+        if (this.heldEssence === 'none') return;
+
+        let closestObject = this.scene.physics.closest(this.player.sprite, fadedObjects.getChildren());
+        if (closestObject && Phaser.Math.Distance.Between(this.player.sprite.x, this.player.sprite.y, closestObject.x, closestObject.y) < 100) {
+            closestObject.setData('imbueType', this.heldEssence);
+            console.log(`Imbued object with ${this.heldEssence}`);
+
+            // Visual feedback for imbuing 
+            if (this.heldEssence === 'bouncy') closestObject.tint = 0xffa500;
+            if (this.heldEssence === 'sticky') closestObject.tint = 0x66ff66;
+
+            this.heldEssence = 'none';
+            this.uiText.setText('Held Essence: None');
+        }
+    }
+
+    // Logic for interacting with an imbued object
+    handleCollision(playerSprite, fadedObject) {
+        const imbueType = fadedObject.getData('imbueType');
+        if (imbueType === 'bouncy' && playerSprite.body.touching.down) {
+            playerSprite.setVelocityY(-550); // Bouncy effect 
+        }
+        if (imbueType === 'sticky') { // Sticky wall effect 
+            if (playerSprite.body.velocity.y > 0) playerSprite.setVelocityY(50);
+        }
+    }
+
+    update() {
+        if (Phaser.Input.Keyboard.JustDown(this.imbueKey)) {
+            this.imbue(this.scene.fadedObjects);
+        }
+    }
+}
+
+// Main Game Scene
+class WhisperingWoods extends Phaser.Scene {
+    constructor() {
+        super("WhisperingWoods");
+        this.playerController = null;
+        this.essenceManager = null;
+        this.notification = null;
+        this.fadedObjects = null;
+    }
+
+    preload() {
+        this.load.json('levelData', 'level1.json');
+        // Placeholder textures. In a real project, you'd load images:
+        // this.load.image('lila', 'assets/lila.png');
+    }
+
+    create() {
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.notification = new Notification(this);
+
+        // --- Level Construction from Tiled Data  ---
+        const levelData = this.cache.json.get('levelData');
+
+        const platforms = this.physics.add.staticGroup();
+        levelData.layers.find(layer => layer.name === 'platforms').objects.forEach(obj => {
+            platforms.create(obj.x + obj.width / 2, obj.y + obj.height / 2, 'platform')
+                .setSize(obj.width, obj.height).setTint(0x888888).refreshBody();
+        });
+
+        const essenceSources = this.physics.add.group();
+        levelData.layers.find(layer => layer.name === 'essences').objects.forEach(obj => {
+            const source = essenceSources.create(obj.x + 16, obj.y + 16, 'source');
+            source.essenceType = obj.name;
+            source.tint = (obj.name === 'bouncy') ? 0xffa500 : 0x66ff66;
+        });
+
+        this.fadedObjects = this.physics.add.staticGroup();
+        levelData.layers.find(layer => layer.name === 'faded').objects.forEach(obj => {
+            this.fadedObjects.create(obj.x + obj.width / 2, obj.y + obj.height / 2, 'faded')
+                .setSize(obj.width, obj.height).setTint(0x444444).refreshBody();
+        });
+
+        // --- Player & Manager Initialization ---
+        this.playerController = new PlayerController(this, 100, 500);
+        this.essenceManager = new EssenceManager(this, this.playerController);
+
+        // --- Physics Colliders ---
+        this.physics.add.collider(this.playerController.sprite, platforms);
+        this.physics.add.collider(this.playerController.sprite, this.fadedObjects, this.essenceManager.handleCollision, null, this.essenceManager);
+        this.physics.add.overlap(this.playerController.sprite, essenceSources, (player, source) => this.essenceManager.absorb(source), null, this);
+
+        // --- Narrative & Puzzle Triggers  ---
+        const triggerObjects = this.physics.add.staticGroup();
+        const startTriggerObj = levelData.layers.find(l => l.name === 'triggers').objects.find(o => o.name === 'start_trigger');
+        const startTrigger = triggerObjects.create(startTriggerObj.x + startTriggerObj.width/2, startTriggerObj.y + startTriggerObj.height/2).setSize(startTriggerObj.width, startTriggerObj.height).setVisible(false);
+        this.physics.add.overlap(this.playerController.sprite, startTrigger, () => {
+            this.notification.show("Elara's Voice: Lila, the forest is fading... \nUse your Essence Satchel to restore it!"); // 
+            startTrigger.disableBody(true, true);
+        }, null, this);
+        
+        const endTriggerObj = levelData.layers.find(l => l.name === 'triggers').objects.find(o => o.name === 'end_trigger');
+        const endTrigger = triggerObjects.create(endTriggerObj.x + endTriggerObj.width/2, endTriggerObj.y + endTriggerObj.height/2).setSize(endTriggerObj.width, endTriggerObj.height).setVisible(false);
+        this.physics.add.overlap(this.playerController.sprite, endTrigger, () => {
+            this.notification.show("The Forest Guardian stirs... its color returns!"); // 
+            this.cameras.main.fadeOut(1000, 255, 255, 255);
+            endTrigger.disableBody(true, true);
+        }, null, this);
+
+        // Set camera to follow the player
+        this.cameras.main.startFollow(this.playerController.sprite, true, 0.08, 0.08);
+        this.cameras.main.setBounds(0, 0, levelData.width * levelData.tilewidth, levelData.height * levelData.tileheight);
+    }
+
+    update() {
+        this.playerController.update();
+        this.essenceManager.update();
+    }
+}
+
+const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 300 }, debug: false }
+    },
+    scene: [WhisperingWoods]
+};
+
+const game = new Phaser.Game(config);
+How to Run the Vertical Slice
+Create Project Folder: If you haven't already, create a folder named biome-weavers.
+Save the Files:
+Save the first block of code as index.html.
+Save the second block of code as level1.json.
+Save the third block of code as game.js.
+Make sure all three files are in the same folder.
+Run a Local Server: As before, use a local server to run the project (e.g., npx http-server, Python's http.server, or VS Code's Live Server extension).
+Play the Game: Open your browser to the local server's address (http://localhost:8080).
+You will now see a much more complete version of the level. The player starts, gets a narrative prompt from "Elara", and must solve the puzzle by using the Bouncy essence to reach the final platform and trigger the level-end sequence.
+
+We have successfully created a single-player vertical slice. The code is now clean, organized, and ready for the multiplayer integration planned in Phase 3.
