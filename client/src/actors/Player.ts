@@ -20,21 +20,22 @@ export class Player extends Actor {
   }
 
   public onInitialize(): void {
-    // Set up collision detection
-    this.on('precollision', (evt) => {
-      // Check if we're touching ground
+    // Set up collision detection for grounded state
+    this.on('postcollision', (evt) => {
+      // Check if we're touching ground from above (landing on platforms)
       if (evt.side === 'Bottom') {
         this.isGrounded = true
+        console.log('🟢 Player grounded')
       }
     })
   }
 
   public onPreUpdate(): void {
+    // Reset grounded state at start of each frame
+    this.isGrounded = false
+    
     this.handleInput()
     this.updateVisuals()
-    
-    // Reset grounded state (will be set again by collision if still grounded)
-    this.isGrounded = false
   }
 
   private handleInput(): void {
@@ -54,9 +55,15 @@ export class Player extends Actor {
     // Apply horizontal velocity
     this.vel.x = movement * GameConfig.PLAYER_SPEED
 
-    // Jumping
-    if ((keyboard.wasPressed(Keys.W) || keyboard.wasPressed(Keys.Space)) && this.isGrounded) {
-      this.vel.y = GameConfig.JUMP_FORCE
+    // Jumping - with debug info
+    if (keyboard.wasPressed(Keys.W) || keyboard.wasPressed(Keys.Space)) {
+      console.log(`🚀 Jump attempt: grounded=${this.isGrounded}, pos=${this.pos.x.toFixed(1)},${this.pos.y.toFixed(1)}`)
+      if (this.isGrounded) {
+        this.vel.y = GameConfig.JUMP_FORCE
+        console.log('✅ Jumping!')
+      } else {
+        console.log('❌ Not grounded, cannot jump')
+      }
     }
   }
 

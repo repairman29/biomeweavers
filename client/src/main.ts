@@ -12,7 +12,6 @@ class BiomeWeaversGame {
       height: GameConfig.SCREEN_HEIGHT,
       displayMode: DisplayMode.FitScreen,
       backgroundColor: Color.fromHex('#1a1a2e'),
-      canvasElementId: 'game-container',
       suppressPlayButton: true
     })
 
@@ -35,6 +34,12 @@ class BiomeWeaversGame {
   public async start(): Promise<void> {
     try {
       await this.engine.start()
+      
+      // Append the engine's canvas to our game container
+      const gameContainer = document.getElementById('game-container')
+      if (gameContainer && this.engine.canvas) {
+        gameContainer.appendChild(this.engine.canvas)
+      }
       
       // Start with the first level
       this.engine.goToScene('whispering-woods')
